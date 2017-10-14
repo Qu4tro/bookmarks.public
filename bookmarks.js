@@ -1,7 +1,7 @@
 /**
  * Default to showing tags.
  */
-tagsVisible = true;
+var tagsVisible = true;
 
 
 /**
@@ -11,6 +11,7 @@ function clearFilter() {
     $("#bookmarks").children().each(function () {
         $(this).show();
     });
+    updateRelatedTags();
     updateTitle();
 }
 
@@ -47,6 +48,73 @@ function showRandom() {
 
 
 /**
+* Poplate the "related tags" area.
+*/
+function updateRelatedTags(tag)
+{
+    /*
+     * For each bookmark - add the tags used if it contains the
+     * currently selected tag.
+     */
+    var avail = "";
+    $("#bookmarks").children().each(function () {
+        var tags = $(this).attr('title');
+        if ((typeof tags !== 'undefined') && (tags.toLowerCase().match(decodeURIComponent(tag))))
+        {
+            avail += "," + tags;
+        }
+    });
+
+    /*
+     * Split into an array, and downcase.
+     */
+    var tags = {};
+    var a = avail.split(",");
+    for (var i in a)
+    {
+        var nm = a[i];
+        nm = nm.replace(/(^\s+|\s+$)/g, '');
+        tags[ nm.toLowerCase() ] = 1;
+    }
+
+    /*
+     * Unique and sort.
+     */
+    var keys = [];
+    for (var t in tags)
+    {
+        if( t )
+            keys.push(t);
+    }
+    var cleanKeys = $.unique(keys);
+    cleanKeys.sort();
+
+    /*
+     * If there is only one tag then we have no related tags
+     * so we hide the region and return.
+     */
+    if (cleanKeys.length < 2) {
+        $("#related_holder").hide()
+        return;
+    } else {
+        $("#related_holder").show()
+    }
+    /*
+     * Now show the tags.
+     */
+    $("#related").html("");
+    for (t in cleanKeys)
+    {
+        $("#related").append("<a class=\"tagfilter\" href=\"#" + encodeURIComponent(cleanKeys[t]) + "\">" + cleanKeys[t] + "</a>, ");
+    }
+
+    /** Remove trailing ", ". */
+    $("#related").html($("#related").html().replace(/, $/, '.'));
+
+}
+
+
+/**
  * Show the number of visible bookmarks in the titlebar.
  */
 function updateTitle()
@@ -64,13 +132,16 @@ function addBookmark() {
     var link = $("#newLink").val();
     var tags = $("#newTags").val();
 
+    var date = new Date();
+    var secs = Math.trunc(date.getTime() / 1000);
+
     // If the name or link is empty then ignore.
     if ( ( ! name ) || ( ! link ) ) {
         return;
     }
 
     var current = document.getElementById("bookmarks").innerHTML;
-    var entry = '<li id="newOne" title="' + tags + '"><a href="' + link + '">' + name + '</a></li>';
+    var entry = '<li id="newOne" title="' + tags + '" time="' + secs + '"><a href="' + link + '">' + name + '</a></li>';
     current = current + entry;
     document.getElementById("bookmarks").innerHTML = current;
     populateTags();
@@ -95,7 +166,7 @@ function addBookmark() {
  * This function collects each distinct tag,
  * stripping whitespace, and placing into sorted order.
  */
-function populateTags()
+function collectTags()
 {
     var tags = {};
     $("#bookmarks").children().each(function () {
@@ -129,10 +200,19 @@ function populateTags()
 
     var cleanKeys = $.unique(keys); // remove duplicate tags
     cleanKeys.sort();
+    return cleanKeys;
+  }
+
+
+/**
+ * Display the tags in the sidebar.
+ */
+function populateTags() {
+    tags = collectTags();
     $("#autotags").html("");
-    for (t in cleanKeys)
+    for (t in tags)
     {
-        $("#autotags").append("<a class=\"tagfilter\" href=\"#" + encodeURIComponent(cleanKeys[t]) + "\">" + cleanKeys[t] + "</a>, ");
+        $("#autotags").append("<a class=\"tagfilter\" href=\"#" + encodeURIComponent(tags[t]) + "\">" + tags[t] + "</a>, ");
     }
 
     /** Remove trailing ", ". */
@@ -225,6 +305,7 @@ function updateView()
 {
     if (typeof window.location.hash !== 'string' || window.location.hash.length === 0)
     {
+        updateRelatedTags();
         return;
     }
 
@@ -235,6 +316,10 @@ function updateView()
             ? $(this).show() : $(this).hide();
     });
 
+    /*
+     * Update the related tags & page-title
+     */
+    updateRelatedTags(tag);
     updateTitle();
 }
 
@@ -256,10 +341,14 @@ function doneEditBookmark () {
  * Switch Add bookmark form to editing mode
  */
 function editBookmark (selector) {
+    var date = new Date();
+    var now  = Math.trunc(date.getTime() / 1000);
+
     // load form
     $('#newName').val(selector.find('> a').html());
     $('#newLink').val(selector.find('> a').attr('href'));
     $('#newTags').val(selector.attr('title'));
+    $('#newTime').val(selector.attr('time') || now );
 
     // switch to editing mode
     $('.whenadd').hide();
@@ -270,6 +359,7 @@ function editBookmark (selector) {
         selector.find('> a').html($('#newName').val());
         selector.find('> a').attr('href', $('#newLink').val());
         selector.attr('title', $('#newTags').val());
+        selector.attr('time', $('#newTime').val());
         // update tags
         toggleTags();
         toggleTags();
@@ -300,6 +390,75 @@ function setupEditRemove () {
     li.mouseleave(function(){
         $(this).find("span.context").remove();
     });
+}
+
+/**
+ * Setup autocomplete of tags in the "Add/Edit Bookmark" form
+ * Based on http://jqueryui.com/autocomplete/#multiple
+ */
+function setupAutocomplete () {
+    function split (val) {
+        return val.split(/,\s*/);
+    }
+    function extractLast (term) {
+        return split(term).pop();
+    }
+  $( "#newTags" )
+    // don't navigate away from the field on tab when selecting an item
+    .on( "keydown", function (event) {
+        if (event.keyCode === $.ui.keyCode.TAB &&
+                $(this).autocomplete("instance").menu.active) {
+            event.preventDefault();
+        }
+    })
+    .autocomplete({
+        minLength: 0,
+        source: function (request, response) {
+            // delegate back to autocomplete, but extract the last term
+            response($.ui.autocomplete.filter(
+                collectTags(), extractLast(request.term)));
+        },
+        focus: function () {
+            // prevent value inserted on focus
+            return false;
+        },
+        select: function (event, ui) {
+            var terms = split(this.value);
+            // remove the current input
+            terms.pop();
+            // add the selected item
+            terms.push( ui.item.value );
+            // add placeholder to get the comma-and-space at the end
+            terms.push("");
+            this.value = terms.join(", ");
+            return false;
+        }
+    });
+}
+
+/**
+ * Handle URL parameters to add a bookmark
+ */
+function handleParams () {
+    // thanks http://stackoverflow.com/a/901144/539470
+    var parm = function(name) {
+        name = name.replace(/[\[\]]/g, "\\$&");
+        var url = window.location.href;
+        var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(url);
+        if (!results) return null;
+        if (!results[2]) return '';
+        return decodeURIComponent(results[2].replace(/\+/g, " "));
+    }
+    switch(parm("op")) {
+    case "bookmark":
+        $('#newName').prop('value', parm("title"));
+        $('#newLink').prop('value', parm("url"));
+        $('#add_bookmark').get(0).scrollIntoView();
+	break;
+    default:
+	// do nothing
+    }
 }
 
 /**
@@ -347,16 +506,23 @@ function setup () {
                 (title.match(filter) || links.match(filter) || filter === "")
                     ? $(this).show() : $(this).hide();
             });
+            updateRelatedTags();
             updateTitle();
         });
 
         setupEditRemove();
+
+        /** Add tag autocomplete to the "add bookmark" form. */
+        setupAutocomplete();
 
         /*
          * Now update the view - in case we were loaded with a
          * hash
          */
         updateView();
+
+        /** Handle URL parameters */
+        handleParams();
     });
 }
 
@@ -374,6 +540,8 @@ function saveDataFile() {
 
     // beautify text
     text = text.trim().replace(/[\n\r]+/g, "").replace(/<\/li><li/g, "</li>\n<li");
+    // sort bookmarks to minimize diff, as they can be reordered when browsing them
+    text = text.split('\n').sort().join('\n') + '\n'; // newline before EOF
 
     // below code was inspired by TiddlyWiki
     var a = $('<a target="_blank" />').appendTo('body');

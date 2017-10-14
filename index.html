@@ -3,8 +3,9 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <title>My Bookmarks</title>
-    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-    <script src="https://code.jquery.com/jquery-3.0.0.min.js" integrity="sha256-JmvOoLtYsmqlsWxa7mDSLMwa6dZ9rrIdtrrVYRnDRH0=" crossorigin="anonymous"></script>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
     <script type="text/javascript">
      //
      // Load an external script.  This is required such that when opening this page as file:///.../index.html we get our external javascript.
@@ -23,7 +24,8 @@
        loadScript("bookmarks.js");
      });
     </script>
-    <link rel="StyleSheet" HREF="bookmarks.css" type="text/css" media="screen"/>
+    <link rel="StyleSheet" href="bookmarks.css" type="text/css" media="screen"/>
+    <link rel="StyleSheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
   </head>
   <body>
     <table id="layout">
@@ -47,6 +49,11 @@
             </p>
           </fieldset>
           <p> </p>
+          <fieldset id="related_holder">
+            <legend><b>Related Tags </b></legend>
+              <div id="related"></div>
+          </fieldset>
+          <p> </p>
           <fieldset>
             <legend><b>Filter Bookmarks </b></legend>
             <form id="filter" name="filter" action="#">
@@ -57,10 +64,11 @@
           <fieldset>
             <legend><b><span class="whenadd">Add</span><span class="whenedit">Edit</span> Bookmark </b></legend>
             <form id="newForm" name="newForm">
+              <input type="hidden" name="newTime" id="newTime" value=""/>
               <table id="add_bookmark" border="0" cellspacing="2" cellpadding="2">
                 <tr><td>Name:</td><td><input type="text" name="newname" id="newName" value="" size="50" /></td></tr>
                 <tr><td>Link:</td><td><input type="text" name="newLink" id="newLink" value="" size="50" /></td></tr>
-                <tr><td>Tags:</td><td><input type="text" name="newTags" id="newTags" value="" size="50" /></</td></tr>
+                <tr><td>Tags:</td><td><input type="text" name="newTags" id="newTags" value="" size="50" /></td></tr>
 
                 <tr><td colspan="2" style="text-align:right">
                   <button class="whenadd" type="button" onclick="addBookmark()">Add</button>
@@ -80,5 +88,8 @@
         </td>
       </tr>
     </table>
+    <p id="footer">
+      <a href="https://github.com/skx/bookmarks.public/">bookmarks.public</a> by <a href="https://steve.kemp.fi">Steve Kemp</a>.
+      </p>
   </body>
 </html>
